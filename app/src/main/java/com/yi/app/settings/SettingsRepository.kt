@@ -68,7 +68,18 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
-    fun saveLastTranslationBlocking(source: String, output: String, stats: String) {
+    /** Explicit clear — the "empty session" marker (blank source => no restore). */
+    fun clearLastTranslationBlocking() {
+        runBlocking {
+            context.settingsStore.edit {
+                it[Keys.LAST_SOURCE] = ""
+                it[Keys.LAST_OUTPUT] = ""
+                it[Keys.LAST_STATS] = ""
+            }
+        }
+    }
+
+        fun saveLastTranslationBlocking(source: String, output: String, stats: String) {
         runBlocking {
             context.settingsStore.edit {
                 it[Keys.LAST_SOURCE] = source

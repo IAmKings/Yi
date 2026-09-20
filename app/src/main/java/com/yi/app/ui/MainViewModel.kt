@@ -296,6 +296,32 @@ class TranslationViewModel(
         _transState.value = TranslationUiState.Idle
     }
 
+    /**
+     * 把当前输入与最近译文固化成"最近一次会话"快照。
+     * Called on lifecycle ON_STOP (and the 任务说明 uses it as the单点 flush),
+     * 空的 source 与空 transState 都视作"没有会话"，全清。
+     */
+    fun persistSession(source: String) {
+        runCatching {
+            val st = transState.value
+            val (prevSrc, _, stats) = settings.lastTranslationBlocking()
+            when (st) {
+                is TranslationUiState.Done -> settings.saveLastTranslationBlocking(
+                    source = source.ifBlank { prevSrc },
+                    output = st.text,
+                    stats = "" + st.tokPerSec + ":" + (if (st.truncated) "1" else "0"),
+                )
+                else -> if (source.isBlank()) settings.clearLastTranslationBlocking()
+                        else settings.saveLastTranslationBlocking(source = source, output = "", stats = "0:0")
+            }
+        }
+    }
+
+    fun clearSession() {
+        settings.clearLastTranslationBlocking()
+        _transState.value = TranslationUiState.Idle
+    }
+
     private fun unload() {
         viewModelScope.launch {
             engine.unload()

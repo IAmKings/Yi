@@ -55,6 +55,23 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     val settings by vm.settingsFlow.collectAsState()
 
     var source by rememberSaveable { mutableStateOf(initialSource.orEmpty()) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                vm.persistSession(source)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    // Debounced persistence: any source change mirrors the flash-even-before-stop view of the session
+    androidx.compose.runtime.LaunchedEffect(source) {
+        kotlinx.coroutines.delay(300)
+        if (source.isBlank() && transState is TranslationUiState.Idle) return@LaunchedEffect
+        vm.persistSession(source)
+    }
+
     var sourceLangOpen by remember { mutableStateOf(false) }
     var targetLangOpen by remember { mutableStateOf(false) }
 
@@ -128,6 +145,11 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                 }
             }
         }
+
+        TextButton(onClick = {
+            vm.clearSession()
+            source = ""
+        }) { Text("清空会话") }
 
         // --- language pair ---
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
