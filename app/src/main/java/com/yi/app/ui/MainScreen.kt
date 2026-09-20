@@ -324,12 +324,20 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         listOf(2048 to "2k", 4096 to "4k", 8192 to "8k", 16384 to "16k").forEach { (c, label) ->
-                            OutlinedButton(
-                                onClick = { vm.setContextSize(c) },
-                                modifier = Modifier.weight(1f),
-                                enabled = settings.contextSize != c,
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                            ) { Text(label, maxLines = 1) }
+                            if (settings.contextSize == c) {
+                                Button(
+                                    onClick = {},               // already selected
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                ) { Text(label, maxLines = 1) }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { vm.setContextSize(c) },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = true,
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                ) { Text(label, maxLines = 1) }
+                            }
                         }
                     }
                     Text("下载镜像 host（Wi-Fi 下载时用）", style = MaterialTheme.typography.labelMedium)
@@ -338,8 +346,11 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                             "huggingface.co" to "huggingface",
                             "hf-mirror.com" to "hf-mirror",
                         ).forEach { (h, label) ->
-                            Button(onClick = { vm.setDownloadHost(h) },
-                                   enabled = settings.downloadHost != h) { Text(label) }
+                            if (settings.downloadHost == h) {
+                                Button(onClick = {}) { Text(label) }
+                            } else {
+                                OutlinedButton(onClick = { vm.setDownloadHost(h) }) { Text(label) }
+                            }
                         }
                     }
                     Text("模型来自 assets 目录/用户目录，SHA-256 校验通过后即可完全离线使用。",
