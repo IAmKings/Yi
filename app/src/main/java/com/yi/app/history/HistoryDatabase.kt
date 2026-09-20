@@ -18,9 +18,9 @@ data class TranslationRecord(
 
 @Dao
 interface HistoryDao {
-    @Insert fun insert(r: TranslationRecord): Long
-    @Delete fun delete(r: TranslationRecord)
-    @Query("DELETE FROM translations") fun clear()
+    @Insert suspend fun insert(r: TranslationRecord): Long
+    @Delete suspend fun delete(r: TranslationRecord)
+    @Query("DELETE FROM translations") suspend fun clear()
 
     @Query("SELECT * FROM translations ORDER BY id DESC LIMIT :limit")
     fun recent(limit: Int = 50): Flow<List<TranslationRecord>>

@@ -328,6 +328,14 @@ class TranslationViewModel(
                         is TranslationEvent.Started -> _transState.value = TranslationUiState.Streaming("")
                         is TranslationEvent.Token -> _transState.value = TranslationUiState.Streaming(ev.fullText)
                         is TranslationEvent.Done -> {
+                            val rec = com.yi.app.history.TranslationRecord(
+                                createdAt = System.currentTimeMillis(),
+                                sourceLang = sourceLang,
+                                targetLang = targetLang,
+                                sourceText = source,
+                                outputText = ev.text,
+                            )
+                            lastSource = source
                             lastSource = source
                             settings.saveLastTranslationBlocking(
                                 source = source,
@@ -335,6 +343,8 @@ class TranslationViewModel(
                                 stats = ev.tokensPerSec.toString() + ":" + (if (ev.truncated) "1" else "0"),
                             )
                             _transState.value = TranslationUiState.Done(ev.text, ev.tokensPerSec, ev.truncated)
+                            historyDao?.insert(rec)
+                            historyDao?.trim(50)
                         }
                         is TranslationEvent.Error ->
                             _transState.value = TranslationUiState.Failed(ev.message)
