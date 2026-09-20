@@ -46,6 +46,7 @@ class TranslationViewModel(
     private val engine: TranslationEngine,
     private val models: ModelRepository,
     private val settings: SettingsRepository,
+    private val historyDao: com.yi.app.history.HistoryDao? = null,
 ) : ViewModel() {
 
     val spec: ModelSpec = Models.HY_MT2_1_8B_1_25BIT
@@ -391,7 +392,18 @@ class TranslationViewModel(
                 engine = TranslationEngine(),
                 models = ModelRepository(ctx),
                 settings = SettingsRepository(ctx),
+                historyDao = com.yi.app.history.HistoryDatabase.get(ctx).dao(),
             ) as T
         }
     }
+
+    /** Live list of the last 50 entries (latest-first) plus helpers. */
+    val history = historyDao?.recent(50) ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
+    fun deleteHistory(r: com.yi.app.history.TranslationRecord) = viewModelScope.launch {
+        historyDao?.delete(r)
+    }
+
+    fun clearHistory() = viewModelScope.launch { historyDao?.clear() }
+
 }

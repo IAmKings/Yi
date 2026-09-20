@@ -90,6 +90,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     var sourceLangOpen by remember { mutableStateOf(false) }
     var targetLangOpen by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var historyOpen by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().systemBarsPadding().padding(16.dp),
@@ -179,6 +180,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             vm.clearSession()
             source = ""
         }) { Text("清空会话") }
+        TextButton(onClick = { historyOpen = true }) { Text("历史") }
 
         // --- language pair: two independent pickers, same-language pairs labelled but blocked ---
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -322,6 +324,53 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             else -> {}
         }
     }
+    if (historyOpen) {
+        val recs by vm.history.collectAsState(initial = emptyList())
+        androidx.compose.ui.window.Dialog(onDismissRequest = { historyOpen = false }) {
+            Card(Modifier.fillMaxWidth().padding(8.dp)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("历史", style = MaterialTheme.typography.titleMedium)
+                        Row {
+                            TextButton(onClick = vm::clearHistory) { Text("清空历史") }
+                            TextButton(onClick = { historyOpen = false }) { Text("完成") }
+                        }
+                    }
+                    if (recs.isEmpty()) Text("暂无记录", style = MaterialTheme.typography.bodySmall)
+                    Column(
+                        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        recs.take(50).forEach { r ->
+                            Card(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        "${r.sourceLang} ⇢ ${r.targetLang} · " +
+                                            java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+                                               .format(java.util.Date(r.createdAt)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline,
+                                    )
+                                    Text(r.sourceText, maxLines = 2)
+                                    Text(r.outputText, maxLines = 2,
+                                         color = MaterialTheme.colorScheme.primary)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(onClick = {
+                                            historyOpen = false
+                                            vm.onSourceChanged(r.sourceText)
+                                            source = r.sourceText
+                                        }) { Text("填入") }
+                                        TextButton(onClick = { vm.deleteHistory(r) }) { Text("删除") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (settingsOpen) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { settingsOpen = false }) {
             Card(Modifier.fillMaxWidth().padding(8.dp)) {
