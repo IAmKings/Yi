@@ -159,10 +159,19 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             OutlinedButton(
                 onClick = { targetLangOpen = false; sourceLangOpen = true },
             ) {
+                Column {
+            Text(
+                if (settings.sourceLang == vm.AUTO_SOURCE) "源：自动"
+                else "源：" + (Languages.ALL.firstOrNull { it.code == settings.sourceLang }?.display ?: settings.sourceLang)
+            )
+            if (settings.sourceLang == vm.AUTO_SOURCE && source.isNotBlank()) {
                 Text(
-                    if (settings.sourceLang == vm.AUTO_SOURCE) "源：自动"
-                    else "源：" + (Languages.ALL.firstOrNull { it.code == settings.sourceLang }?.display ?: settings.sourceLang)
+                    "识别为：" + com.yi.app.engine.Languages.detectSource(source).display,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
                 )
+            }
+        }
             }
             IconButton(onClick = vm::swapLanguages, enabled = settings.sourceLang != vm.AUTO_SOURCE) {
                 Text("⇄")
