@@ -66,6 +66,20 @@ class TranslationViewModel(
     val AUTO_SOURCE = "auto"
 
     /** Swap source and target language codes in one atom-like call. */
+    fun setTemperature(v: Float) = viewModelScope.launch { settings.setTemperature(v) }
+    fun setMaxTokens(v: Int) = viewModelScope.launch { settings.setMaxTokens(v) }
+    fun setDownloadHost(v: String) = viewModelScope.launch { settings.setDownloadHost(v) }
+
+    /** Reload the loaded model at the new context size when user changes ctx. */
+    fun setContextSize(sz: Int) = viewModelScope.launch {
+        settings.setContextSize(sz)
+        if (loaded) {
+            engine.unload()
+            loaded = false
+            tryLoad()  // reload from resolved path with new context size setting
+        }
+    }
+
     fun swapLanguages() = viewModelScope.launch {
         val s = settingsFlow.value.sourceLang
         val t = settingsFlow.value.targetLang

@@ -77,12 +77,16 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
 
     var sourceLangOpen by remember { mutableStateOf(false) }
     var targetLangOpen by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().systemBarsPadding().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("譯", style = MaterialTheme.typography.headlineSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("譯", style = MaterialTheme.typography.headlineSmall)
+            IconButton(onClick = { settingsOpen = true }) { Text("⚙") }
+        }
 
         // --- Engine / model state card ---
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -281,4 +285,52 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             else -> {}
         }
     }
+    if (settingsOpen) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { settingsOpen = false }) {
+            Card(Modifier.fillMaxWidth().padding(8.dp)) {
+                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("设置", style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = { settingsOpen = false }) { Text("完成") }
+                    }
+                    if (engineState !is EngineUiState.Ready) {
+                        Text("模型未就绪，采样类设置将在就绪时生效。", style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    Text("temperature 采样温度 = %.2f（越低越确定）".format(settings.temperature))
+                    androidx.compose.material3.Slider(
+                        value = settings.temperature,
+                        onValueChange = vm::setTemperature,
+                        valueRange = 0f..1f,
+                    )
+
+                    Text("max tokens(输出上限) = ${settings.maxTokens}")
+                    androidx.compose.material3.Slider(
+                        value = settings.maxTokens.toFloat(),
+                        onValueChange = { vm.setMaxTokens(it.toInt().coerceAtLeast(64)) },
+                        valueRange = 64f..4096f,
+                        steps = 10, // step amounts become 64..4096 roughly
+                    )
+
+                    Text("上下文长度 ctx = ${settings.contextSize}（需要重新加载，会清空当前译文）")
+                    Row {
+                        listOf(2048, 4096, 8192, 16384).forEach { c ->
+                            OutlinedButton(onClick = { vm.setContextSize(c) },
+                               enabled = settings.contextSize != c) { Text("$c") }
+                        }
+                    }
+                    Text("下载镜像 host（Wi-Fi 下载时用）", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("huggingface.co", "hf-mirror.com").forEach { h ->
+                            Button(onClick = { vm.setDownloadHost(h) },
+                                   enabled = settings.downloadHost != h) { Text(h) }
+                        }
+                    }
+                    Text("模型来自 assets 目录/用户目录，SHA-256 校验通过后即可完全离线使用。",
+                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
 }
+
