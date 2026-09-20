@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.lifecycle.runtime)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.datastore.preferences)
+    implementation(libs.documentfile)
     implementation(libs.work.runtime)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)

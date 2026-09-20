@@ -1,12 +1,15 @@
 package com.yi.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -41,6 +44,11 @@ fun formatBytes(b: Long): String = when {
 
 @Composable
 fun MainScreen(vm: TranslationViewModel) {
+    val dirPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let(vm::onDirectoryPicked) }
+    val onPickModelDirectory = { dirPicker.launch(null) }
+
     val engineState by vm.engineState.collectAsState()
     val transState by vm.transState.collectAsState()
     val settings by vm.settingsFlow.collectAsState()
@@ -61,11 +69,27 @@ fun MainScreen(vm: TranslationViewModel) {
                 when (val s = engineState) {
                     is EngineUiState.NoModel -> {
                         Text("模型未安装 — Hy-MT2-1.8B (1.25bit, 440MB)")
-                        Text(
-                            "首次下载需 Wi-Fi；下载校验后完全离线",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Button(onClick = vm::download) { Text("下载模型") }
+                        if (vm.hasSavedDir()) {
+                            Text(
+                                "已选目录：${vm.savedDirSummary()}\n未在该目录找到可用 .gguf，只能去下载",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        } else {
+                            Text(
+                                "优先从本机目录加载模型（离线）；目录里没有 .gguf 时才需要下载",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Button(onClick = onPickModelDirectory) { Text("从目录选择模型…") }
+                        OutlinedButton(
+                            onClick = vm::download,
+                            enabled = !vm.hasSavedDir(),
+                        ) { Text("没有模型？去下载 440MB") }
+                        TextButton(onClick = { dirPicker.launch(null) }) { Text("查看/更改已选目录") }
+                    }
+                    is EngineUiState.Importing -> {
+                        Text(s.message)
+                        CircularProgressIndicator(Modifier.size(24.dp))
                     }
                     is EngineUiState.Downloading -> {
                         Text("下载中 ${formatBytes(s.bytesDone)} / ${formatBytes(s.bytesTotal)}")
@@ -87,11 +111,18 @@ fun MainScreen(vm: TranslationViewModel) {
                     }
                     is EngineUiState.Ready -> {
                         Text("就绪 · 后端：${s.backend}")
-                        Text("Hy-MT2-1.8B · CPU · ${settings.contextSize} ctx", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Hy-MT2-1.8B · CPU · ${settings.contextSize} ctx",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = { dirPicker.launch(null) }) { Text("从目录重新加载") }
                     }
                     is EngineUiState.LoadFailed -> {
                         Text("加载失败：${s.message}")
-                        TextButton(onClick = vm::tryLoad) { Text("重试") }
+                        if (vm.hasSavedDir()) {
+                            TextButton(onClick = onPickModelDirectory) { Text("重新选择目录") }
+                        }
+                        TextButton(onClick = { vm.tryLoad() }) { Text("重试") }
                     }
                 }
             }

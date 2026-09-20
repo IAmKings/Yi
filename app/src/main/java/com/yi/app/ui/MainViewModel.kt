@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.yi.app.download.DownloadWorker
+import com.yi.app.download.LocalModelSource
 import com.yi.app.download.InstalledModel
 import com.yi.app.download.ModelRepository
 import com.yi.app.download.Models
@@ -26,6 +27,7 @@ sealed interface EngineUiState {
     data object NoModel : EngineUiState
     data class Downloading(val progress: Float, val bytesDone: Long, val bytesTotal: Long) : EngineUiState
     data class DownloadFailed(val message: String) : EngineUiState
+    data class Importing(val message: String) : EngineUiState
     data class Loading(val progress: Float) : EngineUiState
     data class Ready(val backend: String) : EngineUiState
     data class LoadFailed(val message: String) : EngineUiState
@@ -60,10 +62,14 @@ class TranslationViewModel(
 
     private var translateJob: Job? = null
     private var loaded = false
+    private val local = LocalModelSource(appContext)
+    @Volatile private var activeModelPath: String? = null
 
     init {
         observeDownloadProgress()
-        // Cold start with a verified model present → load immediately.
+        // Cold start priority: (1) app-storage verified model → load immediately;
+        // (2) saved directory → re-import from it; (3) nothing → stay NoModel
+        // (the UI shows directory-pick first, download second).
         viewModelScope.launch {
             installed.collect { list ->
                 val mine = list.firstOrNull { it.id == spec.id }
@@ -72,6 +78,76 @@ class TranslationViewModel(
                     mine == null && loaded -> unload()
                 }
             }
+        }
+    }
+
+    fun hasSavedDir(): Boolean = local.savedDirUri() != null
+
+    fun savedDirSummary(): String {
+        val uri = local.savedDirUri()?.lastPathSegment ?: return "未选择"
+        return java.net.URLDecoder.decode(uri, "UTF-8")
+    }
+
+    fun pickModelDirectory() {
+        _engineState.value = EngineUiState.Importing("等待选择目录…")
+    }
+
+    /** Called from the UI when the SAF tree picker returns a directory. */
+    fun onDirectoryPicked(uri: android.net.Uri) {
+        local.saveDir(uri)
+        viewModelScope.launch {
+            _engineState.value = EngineUiState.Importing("扫描目录…")
+            val docs = local.listGgufs()
+            when {
+                docs.isEmpty() -> {
+                    _engineState.value = EngineUiState.NoModel
+                }
+                docs.any { it.name.equals(spec.fileName, ignoreCase = true) } -> {
+                    _engineState.value = EngineUiState.Importing("正在通过目录复用模型…")
+                    importSpec(docs.first { it.name.equals(spec.fileName, ignoreCase = true) })
+                }
+                else -> {
+                    _engineState.value = EngineUiState.Importing("发现 ${docs.size} 个 gguf，正在导入…")
+                    importGeneric(docs.first())
+                }
+            }
+        }
+    }
+
+    private suspend fun importSpec(doc: androidx.documentfile.provider.DocumentFile) {
+        try {
+            val dest = models.modelFile(spec)
+            val path = local.directPath(doc) ?: run {
+                local.copyIntoAppDir(doc, spec.fileName).absolutePath
+            }
+            val file = path?.let { java.io.File(it) }
+            if (file == null || !file.exists()) throw java.io.IOException("model file not accessible")
+            if (file.length() != spec.sizeBytes) throw java.io.IOException(
+                "文件大小不匹配：${file.length()} vs ${spec.sizeBytes}",
+            )
+            models.markInstalled(
+                InstalledModel(
+                    id = spec.id,
+                    fileName = spec.fileName,
+                    repo = spec.repo,
+                    revision = spec.revision,
+                    sizeBytes = file.length(),
+                    sha256 = local.sha256File(file),
+                ),
+            )
+        } catch (e: Exception) {
+            _engineState.value = EngineUiState.LoadFailed("导入失败：${e.message}")
+        }
+    }
+
+    private suspend fun importGeneric(doc: androidx.documentfile.provider.DocumentFile) {
+        try {
+            val name = doc.name ?: "model.gguf"
+            _engineState.value = EngineUiState.Importing("正在拷贝 $name …")
+            val dest = local.copyIntoAppDir(doc, name)
+            tryLoad(importedPath = dest.absolutePath)
+        } catch (e: Exception) {
+            _engineState.value = EngineUiState.LoadFailed("导入失败：${e.message}")
         }
     }
 
@@ -111,12 +187,18 @@ class TranslationViewModel(
         }
     }
 
-    fun tryLoad() = viewModelScope.launch {
+    fun tryLoad(importedPath: String? = null) = viewModelScope.launch {
         if (loaded) return@launch
+        importedPath?.let { activeModelPath = it }
         _engineState.value = EngineUiState.Loading(0f)
+        val path = resolveModelPath()
+            ?: run {
+                _engineState.value = EngineUiState.NoModel
+                return@launch
+            }
         try {
             val cfg = settingsFlow.value
-            val result = engine.load(models.modelFile(spec).absolutePath, nCtx = cfg.contextSize) { p ->
+            val result = engine.load(path, nCtx = cfg.contextSize) { p ->
                 _engineState.value = EngineUiState.Loading(p)
             }
             loaded = true
@@ -124,6 +206,19 @@ class TranslationViewModel(
         } catch (e: Exception) {
             _engineState.value = EngineUiState.LoadFailed(e.message ?: e.javaClass.simpleName)
         }
+    }
+
+    /** Priority: explicit import path → verified spec file → largest imported gguf. */
+    private fun resolveModelPath(): String? {
+        activeModelPath?.let { return it }
+        val specFile = models.modelFile(spec)
+        if (specFile.isFile && specFile.length() == spec.sizeBytes) return specFile.absolutePath
+        val imported = java.io.File(appContext.filesDir, "models/imported")
+            .listFiles { f -> f.name.endsWith(".gguf", ignoreCase = true) }
+            ?.maxByOrNull { it.length() }
+        if (imported != null && imported.length() > 1_000_000L) return imported.absolutePath
+        if (specFile.isFile) return specFile.absolutePath // last resort: try, verify by load
+        return null
     }
 
     fun translate(source: String, sourceLang: String, targetLang: String) {
