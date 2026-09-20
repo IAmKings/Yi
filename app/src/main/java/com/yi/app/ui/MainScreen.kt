@@ -43,7 +43,7 @@ fun formatBytes(b: Long): String = when {
 }
 
 @Composable
-fun MainScreen(vm: TranslationViewModel) {
+fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     val dirPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> uri?.let(vm::onDirectoryPicked) }
@@ -53,7 +53,7 @@ fun MainScreen(vm: TranslationViewModel) {
     val transState by vm.transState.collectAsState()
     val settings by vm.settingsFlow.collectAsState()
 
-    var source by remember { mutableStateOf("") }
+    var source by remember { mutableStateOf(initialSource.orEmpty()) }
     var sourceLangOpen by remember { mutableStateOf(false) }
     var targetLangOpen by remember { mutableStateOf(false) }
 

@@ -48,6 +48,9 @@ class TranslationViewModel(
 ) : ViewModel() {
 
     val spec: ModelSpec = Models.HY_MT2_1_8B_1_25BIT
+    /** 临时排查：设为 true 强制贪心（temp=0）以隔离采样噪声。 */
+    private val DEBUG_GREEDY = false
+    private fun debugTemp(): Float = if (DEBUG_GREEDY) 0f else settingsFlow.value.temperature
 
     private val _engineState = MutableStateFlow<EngineUiState>(EngineUiState.NoModel)
     val engineState: StateFlow<EngineUiState> = _engineState.asStateFlow()
@@ -81,7 +84,15 @@ class TranslationViewModel(
         }
     }
 
+    @Volatile var pendingSource: String? = null
+
     fun hasSavedDir(): Boolean = local.savedDirUri() != null
+
+    fun consumePendingSource(): String? {
+        val v = pendingSource
+        pendingSource = null
+        return v
+    }
 
     fun savedDirSummary(): String {
         val uri = local.savedDirUri()?.lastPathSegment ?: return "未选择"
@@ -242,7 +253,7 @@ class TranslationViewModel(
         translateJob?.cancel()
         translateJob = viewModelScope.launch {
             engine.translate(source, targetLang, maxTokens = settingsFlow.value.maxTokens,
-                temperature = settingsFlow.value.temperature)
+                temperature = debugTemp())  // 临时对照：贪心解码排查采样退化
                 .collect { ev ->
                     when (ev) {
                         is TranslationEvent.Started -> _transState.value = TranslationUiState.Streaming("")

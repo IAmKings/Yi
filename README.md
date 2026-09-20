@@ -66,7 +66,27 @@ Vulkan，故固定 CPU。
 - `libs/llama.kt/patches/` — 0001 Vulkan UMA、0002 版本宏、0003 STQ1_0
 - `.dsh/models/` — 桌面验证用已下载模型（sha256 校验通过）
 
-## 支持语言（Hy-MT2 全量 33+）
+## R2 排查结论（真机实测）
+
+App 层最初用「官方翻译指令直连 completion」在真机上产出退化文本（英文闲聊、
+杂语重复、`<｜hy_begin…` 特殊字符泄漏）。同引擎同参数的 llama.kt bench App
+复现同款退化 ⇒ 与 STQ1_0 内核无关；根因是 **raw prompt 缺少 Hunyuan 的
+chat 包络（BOS `<｜hy_begin…｜>` / `<｜hy_User｜>` / `<｜hy_Assistant｜>`），
+模型退化为 base-LM 行为**（桌面 llama-cli `-st` 内部自带完整模板所以干净）。
+
+最终方案：走 GGUF 内置 chat template —— `LlamaEngine.formatChat(messages,
+enableThinking=false)` 生成包络 prompt 再 `completion()` 流式输出。
+
+真机回归（PJZ110/Dimensity，CPU 大核，nCtx 4096，KV f16，T 0.7 / K 20 / P 0.6）：
+- Good morning. → 早上好。
+- Good morning. How are you today? → 早上好。你今天过得怎么样？
+- 技术长句（KV-cache/prefill 术语）→ 该去中心化推理引擎同时支持 CPU 和 GPU 后端，
+  能够自动分配 KV-cache 内存，并在请求中止前重新尝试失败的预填充操作。
+
+App 另支持 debug 注入：`am start ... --es source "<english text>"` 直接预填
+输入框（绕过 IME，便于自动化测试；QA 可直接以 `--es` 复现翻译）。
+
+## 支持语言（Hy-MT2 全量 33+)
 
 中/英/繁中/粤/法/葡/西/日/土/俄/阿/韩/泰/意/德/越/马/印尼/菲/印地/波/捷/
 荷/高棉/缅/波斯/古吉拉特/乌尔都/泰卢固/马拉地/希伯来/孟加拉/泰米尔/

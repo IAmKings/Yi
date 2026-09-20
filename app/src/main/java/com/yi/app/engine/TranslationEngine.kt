@@ -3,12 +3,14 @@ package com.yi.app.engine
 import com.tensai.llamakt.LlamaEngine
 import com.tensai.llamakt.GgufMetadata
 import com.tensai.llamakt.SamplingParams
+import com.tensai.llamakt.ChatMessage
 import com.tensai.llamakt.TokenCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import android.util.Log
 import kotlinx.coroutines.withContext
 
 /** Events emitted while a translation runs. */
@@ -69,6 +71,7 @@ class TranslationEngine {
             val md = LlamaEngine.readMetadata(path) ?: error("metadata unreadable")
             return@withContext LoadResult(engine.activeBackend(), md)
         }
+        Log.i("YiEngine", "loading model: $path (nCtx=$nCtx); meta=" + LlamaEngine.readMetadata(path))
         if (loadedPath != null) unload()
         // flashAttn "off" + default f16 KV: translation context is short and
         // KV memory is not a bottleneck for 1.8B; never combine a quantized KV
@@ -110,7 +113,6 @@ class TranslationEngine {
             return@callbackFlow
         }
         trySend(TranslationEvent.Started)
-        val prompt = buildPrompt(source.trim(), targetLang)
         // Stop on the hy assistant-tag family and trailing artifacts the model
         // may emit; matched sequences are never emitted into the stream.
         val params = SamplingParams(
@@ -119,9 +121,12 @@ class TranslationEngine {
             topK = 20,
             topP = 0.6f,
             minP = 0.05f,
-            stopSequences = TranslationPrompts.stopSequences,
         )
+        val messages = listOf(ChatMessage("user", buildPrompt(source, targetLang)))
+        val prompt = engine.formatChat(messages, enableThinking = false)
+        Log.i("YiEngine", "chatPrompt=[$prompt]")
         val startedAt = System.nanoTime()
+        // 覆写：用 chat() 流（模板渲染 + 原生解析）
         var sb = StringBuilder()
         val sampled = engine.completion(
             prompt,
@@ -138,7 +143,7 @@ class TranslationEngine {
             val text = sb.toString().trim()
             val tokensPerSec = sampled.coerceAtLeast(1) * 1_000_000_000L /
                 (System.nanoTime() - startedAt).coerceAtLeast(1)
-            trySend(TranslationEvent.Done(text, sampled, truncated, tokensPerSec))
+                trySend(TranslationEvent.Done(text, sampled, truncated, tokensPerSec))
         }
         close()
         awaitClose { engine.interrupt() }
