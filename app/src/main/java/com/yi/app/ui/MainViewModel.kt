@@ -58,9 +58,19 @@ class TranslationViewModel(
     private val _transState = MutableStateFlow<TranslationUiState>(restoreTransState())
     val transState: StateFlow<TranslationUiState> = _transState.asStateFlow()
 
+    /** The source text that produced the last restored translation. */
+    val restoredSource = MutableStateFlow<String?>(null)
+    private var lastSource: String? = null
+
     /** Restore the previous session's translation across process death (DataStore-backed). */
+    init {
+        val (snapshotSource, snapshotText, _) = settings.lastTranslationBlocking()
+        restoredSource.value = snapshotSource.ifBlank { null }
+        if (snapshotText.isNotBlank()) lastSource = snapshotSource
+    }
+
     private fun restoreTransState(): TranslationUiState {
-        val (source, text, stats) = settings.lastTranslationBlocking()
+        val (_, text, stats) = settings.lastTranslationBlocking()
         if (text.isBlank()) return TranslationUiState.Idle
         val tokens = stats.substringBefore(':').toLongOrNull() ?: 0L
         val truncated = stats.substringAfter(':') == "1"
@@ -265,6 +275,14 @@ class TranslationViewModel(
         return null
     }
 
+    /** Pairing rule: when source changes, the previous result no longer belongs to it. */
+    fun onSourceChanged(text: String) {
+        val last = lastSource
+        if (transState.value is TranslationUiState.Done && last != null && last != text.trim()) {
+            _transState.value = TranslationUiState.Idle
+        }
+    }
+
     fun translate(source: String, sourceLang: String, targetLang: String) {
         if (!loaded || source.isBlank()) return
         translateJob?.cancel()
@@ -276,6 +294,7 @@ class TranslationViewModel(
                         is TranslationEvent.Started -> _transState.value = TranslationUiState.Streaming("")
                         is TranslationEvent.Token -> _transState.value = TranslationUiState.Streaming(ev.fullText)
                         is TranslationEvent.Done -> {
+                            lastSource = source
                             settings.saveLastTranslationBlocking(
                                 source = source,
                                 output = ev.text,

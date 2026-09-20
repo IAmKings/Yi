@@ -54,7 +54,9 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     val transState by vm.transState.collectAsState()
     val settings by vm.settingsFlow.collectAsState()
 
-    var source by rememberSaveable { mutableStateOf(initialSource.orEmpty()) }
+    val restoredSrc by vm.restoredSource.collectAsState()
+    var drawnInit = remember { if (initialSource.isNullOrBlank() && restoredSrc?.isBlank() == false) restoredSrc else null }
+    var source by rememberSaveable { mutableStateOf(initialSource.orEmpty().ifBlank { drawnInit.orEmpty() }) }
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -183,7 +185,10 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
         // --- source input ---
         OutlinedTextField(
             value = source,
-            onValueChange = { source = it },
+            onValueChange = {
+                vm.onSourceChanged(it)
+                source = it
+            },
             modifier = Modifier.fillMaxWidth().weight(0.35f),
             placeholder = { Text("输入要翻译的文本…") },
         )
