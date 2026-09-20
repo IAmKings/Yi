@@ -3,6 +3,7 @@ package com.yi.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,7 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -87,7 +93,17 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("譯", style = MaterialTheme.typography.headlineSmall)
-            IconButton(onClick = { settingsOpen = true }) { Text("⚙") }
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(color = MaterialTheme.colorScheme.primary)
+                    .clickable { settingsOpen = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("⚙", color = MaterialTheme.colorScheme.onPrimary,
+                     style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         // --- Engine / model state card ---
