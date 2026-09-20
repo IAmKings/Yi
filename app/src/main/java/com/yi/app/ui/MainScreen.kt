@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -289,7 +291,11 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { settingsOpen = false }) {
             Card(Modifier.fillMaxWidth().padding(8.dp)) {
                 Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
                         Text("设置", style = MaterialTheme.typography.titleMedium)
                         TextButton(onClick = { settingsOpen = false }) { Text("完成") }
                     }
@@ -313,17 +319,20 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                     )
 
                     Text("上下文长度 ctx = ${settings.contextSize}（需要重新加载，会清空当前译文）")
-                    Row {
-                        listOf(2048, 4096, 8192, 16384).forEach { c ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(2048 to "2k", 4096 to "4k", 8192 to "8k", 16384 to "16k").forEach { (c, label) ->
                             OutlinedButton(onClick = { vm.setContextSize(c) },
-                               enabled = settings.contextSize != c) { Text("$c") }
+                               enabled = settings.contextSize != c) { Text(label) }
                         }
                     }
                     Text("下载镜像 host（Wi-Fi 下载时用）", style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("huggingface.co", "hf-mirror.com").forEach { h ->
+                        listOf(
+                            "huggingface.co" to "huggingface",
+                            "hf-mirror.com" to "hf-mirror",
+                        ).forEach { (h, label) ->
                             Button(onClick = { vm.setDownloadHost(h) },
-                                   enabled = settings.downloadHost != h) { Text(h) }
+                                   enabled = settings.downloadHost != h) { Text(label) }
                         }
                     }
                     Text("模型来自 assets 目录/用户目录，SHA-256 校验通过后即可完全离线使用。",
