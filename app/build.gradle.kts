@@ -21,10 +21,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/yi-release.keystore")
+            storePassword = System.getenv("YI_STORE_PASS") ?: "yi-translator-2026"
+            keyAlias = System.getenv("YI_KEY_ALIAS") ?: "yi"
+            keyPassword = System.getenv("YI_KEY_PASS") ?: "yi-translator-2026"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
