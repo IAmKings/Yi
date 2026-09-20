@@ -44,4 +44,32 @@ object Languages {
         Lang("Uyghur", "ئۇيغۇرچە"),
         Lang("Cantonese", "粤語"),
     )
+
+    /**
+     * Script-based language guess for the "自动" source option.
+     * NOTE: the Hy-MT2 prompt does NOT require a source_lang at all —
+     * only target_lang — so the model does its own implicit detection
+     * at decode time; this heuristic is for UI display / prompt text only.
+     */
+    fun detectSource(text: String): Lang {
+        if (text.isBlank()) return ALL.first()
+        var han = 0; var kana = 0; var hangul = 0; var latin = 0
+        for (ch in text) when (ch) {
+            in 'ぁ'..'ー'  -> kana++
+            in '㐀'..'鿿'  -> han++
+            in 'ᄀ'..'ᇿ'  -> hangul++
+            in '가'..'힣'  -> hangul++
+            in 'A'..'Z', in 'a'..'z' -> latin++
+        }
+        val cjk = han + hangul
+        return when {
+            kana > 0          -> find("Japanese")
+            hangul > 0        -> find("Korean")
+            han >= latin      -> find("Chinese")
+            latin > 0         -> find("English")
+            else              -> find("English")
+        }
+    }
+
+    private fun find(code: String): Lang = ALL.first { it.code == code }
 }

@@ -21,6 +21,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -155,8 +156,16 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
 
         // --- language pair: two independent pickers, same-language pairs labelled but blocked ---
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { targetLangOpen = false; sourceLangOpen = true }) {
-                Text("源：${Languages.ALL.firstOrNull { it.code == settings.sourceLang }?.display ?: settings.sourceLang}")
+            OutlinedButton(
+                onClick = { targetLangOpen = false; sourceLangOpen = true },
+            ) {
+                Text(
+                    if (settings.sourceLang == vm.AUTO_SOURCE) "源：自动"
+                    else "源：" + (Languages.ALL.firstOrNull { it.code == settings.sourceLang }?.display ?: settings.sourceLang)
+                )
+            }
+            IconButton(onClick = vm::swapLanguages, enabled = settings.sourceLang != vm.AUTO_SOURCE) {
+                Text("⇄")
             }
             OutlinedButton(onClick = { sourceLangOpen = false; targetLangOpen = true }) {
                 Text("目标：${Languages.ALL.firstOrNull { it.code == settings.targetLang }?.display ?: settings.targetLang}")
@@ -164,7 +173,19 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DropdownMenu(expanded = sourceLangOpen, onDismissRequest = { sourceLangOpen = false }) {
-                Languages.ALL.forEach { lang ->
+                DropdownMenuItem(
+                    text = { Column(Modifier.padding(vertical = 2.dp)) {
+                        Text("自动检测")
+                        Text("Auto detect", style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.outline)
+                    } },
+                    enabled = true,
+                    onClick = {
+                        vm.setSourceLang(com.yi.app.engine.Languages.ALL.first().copy(code = vm.AUTO_SOURCE, display = "自动检测"))
+                        sourceLangOpen = false
+                    },
+                )
+                Languages.ALL.filter { it.code != settings.targetLang }.forEach { lang ->
                     DropdownMenuItem(
                         text = {
                             Column(Modifier.padding(vertical = 2.dp)) {
@@ -182,7 +203,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                 }
             }
             DropdownMenu(expanded = targetLangOpen, onDismissRequest = { targetLangOpen = false }) {
-                Languages.ALL.forEach { lang ->
+                Languages.ALL.filter { it.code != settings.sourceLang || settings.sourceLang == vm.AUTO_SOURCE }.forEach { lang ->
                     DropdownMenuItem(
                         text = {
                             Column(Modifier.padding(vertical = 4.dp)) {
@@ -242,7 +263,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                         Text("停止")
                     }
                     else -> ExtendedFloatingActionButton(onClick = {
-                        vm.translate(source, settings.sourceLang, settings.targetLang)
+                        vm.translateAutoDetect(source, settings.sourceLang, settings.targetLang)
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text("翻译 → ${settings.targetLang}")
                     }

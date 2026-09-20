@@ -11,6 +11,7 @@ import com.yi.app.download.InstalledModel
 import com.yi.app.download.ModelRepository
 import com.yi.app.download.Models
 import com.yi.app.download.ModelSpec
+import com.yi.app.engine.Languages
 import com.yi.app.engine.TranslationEngine
 import com.yi.app.engine.TranslationEvent
 import com.yi.app.settings.AppSettings
@@ -61,7 +62,17 @@ class TranslationViewModel(
     /** The source text that produced the last restored translation. */
     val restoredSource = MutableStateFlow<String?>(null)
     private var lastSource: String? = null
+    /** Sentinel value kept in DataStore for the 自动 (auto-detect) source option. */
+    val AUTO_SOURCE = "auto"
 
+    /** Swap source and target language codes in one atom-like call. */
+    fun swapLanguages() = viewModelScope.launch {
+        val s = settingsFlow.value.sourceLang
+        val t = settingsFlow.value.targetLang
+        settings.setSourceLang(t)
+        settings.setTargetLang(s)
+        if (_transState.value is TranslationUiState.Done) _transState.value = TranslationUiState.Idle
+    }
     /** Restore the previous session's translation across process death (DataStore-backed). */
     init {
         val (snapshotSource, snapshotText, _) = settings.lastTranslationBlocking()
@@ -211,10 +222,12 @@ class TranslationViewModel(
 
     fun setSourceLang(lang: com.yi.app.engine.Languages.Lang) = viewModelScope.launch {
         settings.setSourceLang(lang.code)
+        if (_transState.value is TranslationUiState.Done) _transState.value = TranslationUiState.Idle
     }
 
     fun setTargetLang(lang: com.yi.app.engine.Languages.Lang) = viewModelScope.launch {
         settings.setTargetLang(lang.code)
+        if (_transState.value is TranslationUiState.Done) _transState.value = TranslationUiState.Idle
     }
 
     private fun observeDownloadProgress() {
@@ -281,6 +294,12 @@ class TranslationViewModel(
         if (transState.value is TranslationUiState.Done && last != null && last != text.trim()) {
             _transState.value = TranslationUiState.Idle
         }
+    }
+
+    /** UI entry point: resolve 自动 (auto-detect) sentinel before dispatching. */
+    fun translateAutoDetect(source: String, sourceLang: String, targetLang: String) {
+        val resolved = if (sourceLang == AUTO_SOURCE) Languages.detectSource(source).code else sourceLang
+        translate(source, resolved, targetLang)
     }
 
     fun translate(source: String, sourceLang: String, targetLang: String) {
