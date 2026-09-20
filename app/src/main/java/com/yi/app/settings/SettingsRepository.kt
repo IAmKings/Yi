@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 private val Context.settingsStore by preferencesDataStore("settings")
 
@@ -28,6 +30,9 @@ class SettingsRepository(private val context: Context) {
         val MAX_TOKENS = intPreferencesKey("max_tokens")
         val CTX = intPreferencesKey("context_size")
         val HOST = stringPreferencesKey("download_host")
+        val LAST_SOURCE = stringPreferencesKey("last_source")
+        val LAST_OUTPUT = stringPreferencesKey("last_output")
+        val LAST_STATS = stringPreferencesKey("last_stats")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -47,4 +52,29 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMaxTokens(v: Int) = context.settingsStore.edit { it[Keys.MAX_TOKENS] = v }
     suspend fun setContextSize(v: Int) = context.settingsStore.edit { it[Keys.CTX] = v }
     suspend fun setDownloadHost(v: String) = context.settingsStore.edit { it[Keys.HOST] = v }
+
+    // ---- last translation snapshot (cross-process restore) ----
+    private val L_SRC = stringPreferencesKey("last_source")
+    private val L_OUT = stringPreferencesKey("last_output")
+    private val L_STA = stringPreferencesKey("last_stats")
+
+    /** Blocking read, used once at ViewModel init only. */
+    fun lastTranslationBlocking(): Triple<String, String, String> {
+        val prefs = runBlocking { context.settingsStore.data.first() }
+        return Triple(
+            prefs[Keys.LAST_SOURCE] ?: "",
+            prefs[Keys.LAST_OUTPUT] ?: "",
+            prefs[Keys.LAST_STATS] ?: "",
+        )
+    }
+
+    fun saveLastTranslationBlocking(source: String, output: String, stats: String) {
+        runBlocking {
+            context.settingsStore.edit {
+                it[Keys.LAST_SOURCE] = source
+                it[Keys.LAST_OUTPUT] = output
+                it[Keys.LAST_STATS] = stats
+            }
+        }
+    }
 }

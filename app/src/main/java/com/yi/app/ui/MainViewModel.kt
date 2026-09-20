@@ -55,8 +55,25 @@ class TranslationViewModel(
     private val _engineState = MutableStateFlow<EngineUiState>(EngineUiState.NoModel)
     val engineState: StateFlow<EngineUiState> = _engineState.asStateFlow()
 
-    private val _transState = MutableStateFlow<TranslationUiState>(TranslationUiState.Idle)
+    private val _transState = MutableStateFlow<TranslationUiState>(restoreTransState())
     val transState: StateFlow<TranslationUiState> = _transState.asStateFlow()
+
+    /** Restore the previous session's translation across process death (DataStore-backed). */
+    private fun restoreTransState(): TranslationUiState {
+        val (source, text, stats) = settings.lastTranslationBlocking()
+        if (text.isBlank()) return TranslationUiState.Idle
+        val tokens = stats.substringBefore(':').toLongOrNull() ?: 0L
+        val truncated = stats.substringAfter(':') == "1"
+        return TranslationUiState.Done(text, tokens, truncated)
+    }
+    
+    companion object {
+        private const val KEY_LAST_SOURCE = "last_source"
+        private const val KEY_LAST_OUTPUT = "last_output"
+        private const val KEY_LAST_STATS = "last_stats"
+    }
+    
+
 
     val installed = models.installed
 
@@ -258,8 +275,14 @@ class TranslationViewModel(
                     when (ev) {
                         is TranslationEvent.Started -> _transState.value = TranslationUiState.Streaming("")
                         is TranslationEvent.Token -> _transState.value = TranslationUiState.Streaming(ev.fullText)
-                        is TranslationEvent.Done ->
+                        is TranslationEvent.Done -> {
+                            settings.saveLastTranslationBlocking(
+                                source = source,
+                                output = ev.text,
+                                stats = ev.tokensPerSec.toString() + ":" + (if (ev.truncated) "1" else "0"),
+                            )
                             _transState.value = TranslationUiState.Done(ev.text, ev.tokensPerSec, ev.truncated)
+                        }
                         is TranslationEvent.Error ->
                             _transState.value = TranslationUiState.Failed(ev.message)
                     }

@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -53,7 +54,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
     val transState by vm.transState.collectAsState()
     val settings by vm.settingsFlow.collectAsState()
 
-    var source by remember { mutableStateOf(initialSource.orEmpty()) }
+    var source by rememberSaveable { mutableStateOf(initialSource.orEmpty()) }
     var sourceLangOpen by remember { mutableStateOf(false) }
     var targetLangOpen by remember { mutableStateOf(false) }
 
