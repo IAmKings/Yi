@@ -116,14 +116,30 @@ class TranslationViewModel(
 
     private suspend fun importSpec(doc: androidx.documentfile.provider.DocumentFile) {
         try {
-            val dest = models.modelFile(spec)
-            val path = local.directPath(doc) ?: run {
-                local.copyIntoAppDir(doc, spec.fileName).absolutePath
+            // 1) Fast path: reuse the file in place when the direct path is
+            //    actually readable (scoped storage denies raw reads for
+            //    non-media files like .gguf → expect EACCES on /sdcard).
+            // 2) Fallback: stream-copy the SAF grant into app storage.
+            var file: java.io.File? = null
+            val direct = local.directPath(doc)
+            if (direct != null) {
+                val f = java.io.File(direct)
+                try {
+                    f.inputStream().use { it.readNBytes(64) } // readability probe
+                    file = f
+                } catch (_: Exception) {
+                    // EACCES style denial → fall through to the SAF copy
+                    file = null
+                }
             }
-            val file = path?.let { java.io.File(it) }
-            if (file == null || !file.exists()) throw java.io.IOException("model file not accessible")
+            if (file == null) {
+                _engineState.value = EngineUiState.Importing("正在拷贝模型到应用目录（约 440MB）…")
+                file = local.copyIntoAppDir(doc, spec.fileName)
+            }
+            file = file!!
+            if (!file.exists()) throw java.io.IOException("model file not accessible")
             if (file.length() != spec.sizeBytes) throw java.io.IOException(
-                "文件大小不匹配：${file.length()} vs ${spec.sizeBytes}",
+                "文件大小不匹配：读取到 ${file.length()} 字节，预期 ${spec.sizeBytes}",
             )
             models.markInstalled(
                 InstalledModel(
