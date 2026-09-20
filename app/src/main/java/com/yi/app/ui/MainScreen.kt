@@ -253,7 +253,7 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             }
         }
 
-        // --- source input ---
+        // --- source input (inline ✕ clears the field, appears only when empty-not) ---
         OutlinedTextField(
             value = source,
             onValueChange = {
@@ -262,6 +262,15 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             },
             modifier = Modifier.fillMaxWidth().weight(0.35f),
             placeholder = { Text("输入要翻译的文本…") },
+            trailingIcon = {
+                if (source.isNotBlank()) {
+                    IconButton(onClick = {
+                        vm.cancelTranslation()
+                        vm.clearSession()
+                        source = ""
+                    }) { Text("❌") }
+                }
+            },
         )
 
         // --- output / status ---
