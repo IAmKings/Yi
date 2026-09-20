@@ -28,6 +28,7 @@ Data and domain layers (`:core:data`, `:core:domain`, `:core:network`, `:core:da
 - [Network](./backend/network.md)
 - [Dependency Injection](./backend/dependency-injection.md)
 - [Error Handling](./backend/error-handling.md)
+- [LLM Inference Contract](./backend/llm-inference-contract.md) — chat-template prompt contract for llama.kt/GGUF (Hy-MT2 degenerate-output bug)
 - [Concurrency](./backend/concurrency.md)
 - [Logging](./backend/logging.md)
 - [Quality](./backend/quality.md)

@@ -27,6 +27,7 @@
 | [concurrency.md](./concurrency.md)                 | Dispatchers, structured concurrency, Flow      | Any async code                     |
 | [logging.md](./logging.md)                         | Timber/Kermit conventions, PII rules           | Adding logs                        |
 | [quality.md](./quality.md)                         | Boundaries checks, detekt, CI gates            | Before committing                  |
+| [llm-inference-contract.md](./llm-inference-contract.md) | Chat-template prompt contract for llama.kt/GGUF — Hy-MT2 degenerate-output bug (R2) | Touching prompt construction, sampling params, or engine integration |
 
 ---
 
@@ -57,6 +58,7 @@
 | **Export Room schema and write migration tests**                 | [database.md](./database.md)                  |
 | **`android.*` banned in `:core:model`/`:core:common`**           | [directory-structure.md](./directory-structure.md) |
 | **No PII in logs**                                               | [logging.md](./logging.md)                    |
+| **Instruction prompts must go through the GGUF chat template (`formatChat`), never raw `completion()`** | [llm-inference-contract.md](./llm-inference-contract.md) |
 
 ---
 
