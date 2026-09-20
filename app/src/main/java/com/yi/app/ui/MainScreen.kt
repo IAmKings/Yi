@@ -319,10 +319,17 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
                     )
 
                     Text("上下文长度 ctx = ${settings.contextSize}（需要重新加载，会清空当前译文）")
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         listOf(2048 to "2k", 4096 to "4k", 8192 to "8k", 16384 to "16k").forEach { (c, label) ->
-                            OutlinedButton(onClick = { vm.setContextSize(c) },
-                               enabled = settings.contextSize != c) { Text(label) }
+                            OutlinedButton(
+                                onClick = { vm.setContextSize(c) },
+                                modifier = Modifier.weight(1f),
+                                enabled = settings.contextSize != c,
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                            ) { Text(label, maxLines = 1) }
                         }
                     }
                     Text("下载镜像 host（Wi-Fi 下载时用）", style = MaterialTheme.typography.labelMedium)
