@@ -50,6 +50,8 @@ class TranslationEngine {
     private var loadedPath: String? = null
 
     val isLoaded: Boolean get() = loadedPath != null
+    @Volatile var ctxSize: Int = 4096
+        private set
 
     data class LoadResult(
         val backend: String,
@@ -86,6 +88,7 @@ class TranslationEngine {
             flashAttn = "off",
         )
         loadedPath = path
+        ctxSize = nCtx
         val md = LlamaEngine.readMetadata(path) ?: error("GGUF metadata unreadable after load")
         LoadResult(engine.activeBackend(), md)
     }
@@ -125,6 +128,22 @@ class TranslationEngine {
         val messages = listOf(ChatMessage("user", buildPrompt(source, targetLang)))
         val prompt = engine.formatChat(messages, enableThinking = false)
         Log.i("YiEngine", "chatPrompt=[$prompt]")
+        // Context budget guard: envelope + source + predicted output must fit.
+        // nPredict is the *output* budget the user asked for; anything left is
+        // spent on the prompt. We translate only when it fits — truncating
+        // source silently would produce a misleading "translation".
+        val promptTokens = try { engine.tokenize(prompt).size } catch (_: Exception) { -1 }
+        if (promptTokens >= 0) {
+            val budget = ctxSize - maxTokens - 32 // margin: template/special tokens
+            if (budget <= 0 || promptTokens > budget) {
+                trySend(TranslationEvent.Error(
+                    "输入过长 — 共 $promptTokens 个 token，" +
+                    "超出当前上下文预算（ctx=$ctxSize，含输出预留 $maxTokens）。" +
+                    "请缩短或分段处理（本模型约 1 token ≈ 0.6 汉字 / 0.75 英文单词）。"))
+                close()
+                return@callbackFlow
+            }
+        }
         val startedAt = System.nanoTime()
         // 覆写：用 chat() 流（模板渲染 + 原生解析）
         var sb = StringBuilder()
