@@ -153,15 +153,27 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             source = ""
         }) { Text("清空会话") }
 
-        // --- language pair ---
+        // --- language pair: two independent pickers, same-language pairs labelled but blocked ---
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { sourceLangOpen = true }) {
-                Text("${settings.sourceLang} ⇢ ${settings.targetLang}")
+            OutlinedButton(onClick = { targetLangOpen = false; sourceLangOpen = true }) {
+                Text("源：${Languages.ALL.firstOrNull { it.code == settings.sourceLang }?.display ?: settings.sourceLang}")
             }
+            OutlinedButton(onClick = { sourceLangOpen = false; targetLangOpen = true }) {
+                Text("目标：${Languages.ALL.firstOrNull { it.code == settings.targetLang }?.display ?: settings.targetLang}")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DropdownMenu(expanded = sourceLangOpen, onDismissRequest = { sourceLangOpen = false }) {
                 Languages.ALL.forEach { lang ->
                     DropdownMenuItem(
-                        text = { Text(lang.display) },
+                        text = {
+                            Column(Modifier.padding(vertical = 2.dp)) {
+                                Text(lang.display)
+                                Text(lang.code, style = MaterialTheme.typography.labelSmall,
+                                     color = MaterialTheme.colorScheme.outline)
+                            }
+                        },
+                        enabled = lang.code != settings.targetLang,
                         onClick = {
                             vm.setSourceLang(lang)
                             sourceLangOpen = false
@@ -172,7 +184,14 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             DropdownMenu(expanded = targetLangOpen, onDismissRequest = { targetLangOpen = false }) {
                 Languages.ALL.forEach { lang ->
                     DropdownMenuItem(
-                        text = { Text(lang.display) },
+                        text = {
+                            Column(Modifier.padding(vertical = 4.dp)) {
+                                Text(lang.display)
+                                Text(lang.code, style = MaterialTheme.typography.labelSmall,
+                                     color = MaterialTheme.colorScheme.outline)
+                            }
+                        },
+                        enabled = lang.code != settings.sourceLang,
                         onClick = {
                             vm.setTargetLang(lang)
                             targetLangOpen = false
