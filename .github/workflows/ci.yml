@@ -39,6 +39,9 @@ jobs:
         with:
           cache-read-only: false
 
+      - name: Install NDK 27.2 (matches llama-kt pinned ndkVersion)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null 2>&1 || true
+
       - name: Bootstrap vendored llama.cpp sources
         run: bash libs/llama.kt/scripts/bootstrap.sh
 
