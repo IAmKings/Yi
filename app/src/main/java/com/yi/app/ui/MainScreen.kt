@@ -176,10 +176,6 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
             }
         }
 
-        TextButton(onClick = {
-            vm.clearSession()
-            source = ""
-        }) { Text("清空会话") }
         TextButton(onClick = { historyOpen = true }) { Text("历史") }
 
         // --- language pair: two independent pickers, same-language pairs labelled but blocked ---
