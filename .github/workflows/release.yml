@@ -53,7 +53,7 @@ jobs:
       # Signed release APK：keystore 从 secrets 注入，一次生成 base64 上传到仓库 secret
       #   YI_KEYSTORE_BASE64     keystore 文件 base64
       #   YI_STORE_PASS / YI_KEY_PASS / YI_KEY_ALIAS
-      - name: Restore debug signing config (keystore from secrets)
+      - name: Restore signing config (keystore from secrets)
         env:
           YI_KEYSTORE_BASE64: ${{ secrets.YI_KEYSTORE_BASE64 }}
         run: |
@@ -83,15 +83,30 @@ jobs:
       - name: Extract version/tag info
         id: meta
         run: |
-          TAG=${GITHUB_REF_NAME}
+          TAG="${GITHUB_REF_NAME}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          # changelog：从 CHANGELOG.md 抽出当前 tag 的整段正文（无对应段时 fallback 链接）
+          AWK='/^##? \['
+          { awk -v t="$TAG" '
+              BEGIN{in_sec=0}
+              /^##?[ 	]*\[[^\]]+\]/{
+                if (in_sec==1) exit;             # 下一个 section 开始则停
+                if (index($0, "[Unreleased]")>0 || index($0, t)>0) in_sec=1;
+              }
+              in_sec==1{ if ($0 !~ /^##?[ 	]*\[/) print }
+          ' CHANGELOG.md ; } > body.md
+          if [ ! -s body.md ]; then
+            echo "* 本次 tag $TAG 的变更详见 [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)。" > body.md
+          fi
+          echo "body_fname=body.md" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: 譯 ${{ steps.meta.outputs.tag }}
-          generate_release_notes: true
+          body_path: ${{ steps.meta.outputs.body_fname }}
           fail_on_unmatched_files: true
           files: |
             app/build/outputs/apk/debug/app-debug.apk
