@@ -35,7 +35,7 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null 2>&1 || true
 
       - name: Put glslc (NDK shader-tools) on PATH
-        run: echo "$ANDROID_HOME/ndk/27.2.12479018/shader-tools/27.2.12479018" >> $GITHUB_PATH
+        run: echo "$ANDROID_HOME/ndk/27.2.12479018/shader-tools/linux-x86_64" >> $GITHUB_PATH
 
       - name: Bootstrap vendored llama.cpp sources
         run: bash libs/llama.kt/scripts/bootstrap.sh
