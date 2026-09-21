@@ -22,16 +22,8 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Install build toolchain (cmake / glslc shim)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
-          # GNU sed 与 nproc shim（与本地 README 说明一致）
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          mkdir -p ~/.local/bin
-          printf 'nproc\n' > /dev/null   # linux 自带 nproc
-          # glslc：从 Android NDK shader-tools 提供drawable 后续 natively 由 llama.kt 使用
-          echo "$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk | head -1)/shader-tools/$(ls $ANDROID_HOME/ndk | head -1)" >> $GITHUB_PATH
+      - name: Install build toolchain (cmake)
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
       # KSP 的 79MB symbol-processing jar 在 CN 网络/CI 代理下较易中断，
       # aliyun 镜像已在 settings.gradle.kts 配为优先；此处再给 Gradle 配置默认 JVM 参数。
@@ -41,6 +33,9 @@ jobs:
 
       - name: Install NDK 27.2 (matches llama-kt pinned ndkVersion)
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null 2>&1 || true
+
+      - name: Put glslc (NDK shader-tools) on PATH
+        run: echo "$ANDROID_HOME/ndk/27.2.12479018/shader-tools/27.2.12479018" >> $GITHUB_PATH
 
       - name: Bootstrap vendored llama.cpp sources
         run: bash libs/llama.kt/scripts/bootstrap.sh
