@@ -22,9 +22,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install build toolchain (cmake / glslc / GNU sed / nproc shim)
+      - name: Install build toolchain (cmake / glslc shim)
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
@@ -33,7 +31,7 @@ jobs:
           mkdir -p ~/.local/bin
           printf 'nproc\n' > /dev/null   # linux 自带 nproc
           # glslc：从 Android NDK shader-tools 提供drawable 后续 natively 由 llama.kt 使用
-          echo "NDK shader tools resolved via sdk setup (android-actions/setup-android)"
+          echo "$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk | head -1)/shader-tools/$(ls $ANDROID_HOME/ndk | head -1)" >> $GITHUB_PATH
 
       # KSP 的 79MB symbol-processing jar 在 CN 网络/CI 代理下较易中断，
       # aliyun 镜像已在 settings.gradle.kts 配为优先；此处再给 Gradle 配置默认 JVM 参数。

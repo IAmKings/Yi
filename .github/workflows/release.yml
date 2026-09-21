@@ -26,12 +26,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install build toolchain (cmake / ninja)
+      - name: Install build toolchain (cmake / ninja / glslc)
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
+          ND=$(ls $ANDROID_HOME/ndk | head -1)
+          echo "$ANDROID_HOME/ndk/$ND/shader-tools/$ND" >> $GITHUB_PATH
 
       - uses: gradle/actions/setup-gradle@v4
         with:
