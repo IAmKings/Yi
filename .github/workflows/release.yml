@@ -1,0 +1,98 @@
+name: Release
+
+# 推 `v*` tag 时触发：release debug + signed release APK 到 GitHub Release。
+# 正常 push 在 ci.yml 完成。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # create GitHub Release
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          lfs: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install build toolchain (cmake / ninja)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Bootstrap vendored llama.cpp sources
+        run: bash libs/llama.kt/scripts/bootstrap.sh
+
+      - name: Build OpenCL runtime stub
+        run: bash libs/llama.kt/scripts/build-opencl.sh
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
+      # Debug APK：不需要 keystore（对内 distribution）
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      # Signed release APK：keystore 从 secrets 注入，一次生成 base64 上传到仓库 secret
+      #   YI_KEYSTORE_BASE64     keystore 文件 base64
+      #   YI_STORE_PASS / YI_KEY_PASS / YI_KEY_ALIAS
+      - name: Restore debug signing config (keystore from secrets)
+        env:
+          YI_KEYSTORE_BASE64: ${{ secrets.YI_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p keystore
+          if [ -n "$YI_KEYSTORE_BASE64" ]; then
+            echo "$YI_KEYSTORE_BASE64" | base64 -d > keystore/yi-release.keystore
+          else
+            # 无 secret 配置时生成一个 CI 临时签名（不覆盖本地密钥库）
+            keytool -genkeypair -keystore keystore/yi-release.keystore -alias yi \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass yi-translator-2026 -keypass yi-translator-2026 \
+              -dname "CN=Yi CI, OU=Yi, O=Yi, L=Net, ST=Net, C=CN" >/dev/null 2>&1
+          fi
+
+      - name: Assemble signed release APK
+        env:
+          YI_STORE_PASS: ${{ secrets.YI_STORE_PASS }}
+          YI_KEY_PASS: ${{ secrets.YI_KEY_PASS }}
+          YI_KEY_ALIAS: ${{ secrets.YI_KEY_ALIAS }}
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: Verify release signature
+        run: |
+          BT=$ANDROID_HOME/build-tools/36.0.0
+          "$BT/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk || true
+
+      - name: Extract version/tag info
+        id: meta
+        run: |
+          TAG=${GITHUB_REF_NAME}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: 譯 ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release.apk

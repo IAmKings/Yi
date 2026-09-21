@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0            # bootstrap 计算 llama.cpp build number 需要
+          lfs: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install build toolchain (cmake / glslc / GNU sed / nproc shim)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          # GNU sed 与 nproc shim（与本地 README 说明一致）
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          mkdir -p ~/.local/bin
+          printf 'nproc\n' > /dev/null   # linux 自带 nproc
+          # glslc：从 Android NDK shader-tools 提供drawable 后续 natively 由 llama.kt 使用
+          echo "NDK shader tools resolved via sdk setup (android-actions/setup-android)"
+
+      # KSP 的 79MB symbol-processing jar 在 CN 网络/CI 代理下较易中断，
+      # aliyun 镜像已在 settings.gradle.kts 配为优先；此处再给 Gradle 配置默认 JVM 参数。
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Bootstrap vendored llama.cpp sources
+        run: bash libs/llama.kt/scripts/bootstrap.sh
+
+      - name: Build OpenCL runtime stub
+        run: bash libs/llama.kt/scripts/build-opencl.sh
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yi-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
