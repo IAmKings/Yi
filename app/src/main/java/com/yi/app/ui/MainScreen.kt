@@ -329,10 +329,14 @@ fun MainScreen(vm: TranslationViewModel, initialSource: String? = null) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { historyOpen = false }) {
             Card(Modifier.fillMaxWidth().padding(8.dp)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
                         Text("历史", style = MaterialTheme.typography.titleMedium)
                         Row {
-                            TextButton(onClick = vm::clearHistory) { Text("清空历史") }
+                            TextButton(onClick = vm::clearHistory) { Text("清空") }
                             TextButton(onClick = { historyOpen = false }) { Text("完成") }
                         }
                     }
